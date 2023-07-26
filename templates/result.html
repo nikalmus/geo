@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Shortest Route Result</title>
+</head>
+<body>
+    <h1>Optimized Route:</h1>
+    <ul>
+        {% for waypoint in route_waypoints %}
+        <li>
+            Latitude: {{ waypoint.lat }}, Longitude: {{ waypoint.lng }} - Distance: {{ waypoint.distance }}<br>
+            Address: {{ waypoint.address }}
+        </li>
+        {% endfor %}
+    </ul>
+    <p>Total Distance: {{ route_total_distance }}</p>
+    <a href="{{ url_for('index') }}">Back to Home</a>
+</body>
+</html>
