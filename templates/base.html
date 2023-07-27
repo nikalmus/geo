@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>{% block title %}{% endblock %}</title>
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+    <link rel="stylesheet" type="text/css" href="{{ url_for('static', filename='css/styles.css') }}">
+    <style>
+        .form-group {
+            margin-bottom: 20px;
+        }
+        /* Adjust the width of input boxes to accommodate longer addresses */
+        input[type="text"] {
+            width: 80%;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h2 class="banner">Traveling Salesman Problem</h2>
+        {% block content %}
+        {% endblock %}
+    </div>
+</body>
+</html>

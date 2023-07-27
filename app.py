@@ -1,6 +1,6 @@
 import os
 from dotenv import load_dotenv
-from flask import Flask, render_template, request
+from flask import Flask, render_template, request, session, jsonify, redirect, url_for
 import googlemaps
 
 import itertools
@@ -10,29 +10,72 @@ load_dotenv()
 api_key = os.environ['API_KEY']
 
 app = Flask(__name__)
+app.secret_key = os.environ['SECRET_KEY']
 
 gmaps = googlemaps.Client(key=api_key)
 
 
-hardware_stores = [
-    "13650 Orchard Pkwy, Westminster, CO 80023, USA", 
-    "5600 West 88TH Ave Westminster, CO 80031, USA",
-    "2910 Arapahoe Rd, Erie, CO 80026, USA",
-    "12171 Sheridan Blvd, Broomfield, CO 80020, USA",
-    "7125 W 88th Ave, Westminster, CO 80021, USA"
-]
 
-M2MI = 0.000621371 # multiply value by M2MI to convert meters (default unit returned by the Google Maps Directions API) to miles
+M2MI = 0.000621371  # multiply value by M2MI to convert meters (default unit returned by the Google Maps Directions API) to miles
 
+
+@app.route('/reset', methods=['POST'])
+def reset_data():
+    session.pop('route_waypoints', None)
+    session.pop('static_map_url', None)
+    return jsonify(success=True)
+
+
+# @app.route('/', methods=['GET', 'POST'])
+# def index():
+#     if request.method == 'POST':
+#         starting_address = request.form.get('starting_address', '')  # Use get() with a default value
+#         waypoints = [request.form.get(f'waypoint{i}', '') for i in range(1, 5)]  # Use get() with a default value
+#         route_waypoints, route_total_distance, static_map_url = get_shortest_route(starting_address, waypoints)
+#         return render_template('index.html', route_waypoints=route_waypoints, route_total_distance=route_total_distance, static_map_url=static_map_url)
+
+#     return render_template('index.html', route_waypoints=None, route_total_distance=None, static_map_url=None)
 
 @app.route('/', methods=['GET', 'POST'])
 def index():
     if request.method == 'POST':
-        starting_address = request.form['address']
-        route_waypoints, route_total_distance, static_map_url = get_shortest_route(starting_address)
-        return render_template('index.html', route_waypoints=route_waypoints, route_total_distance=route_total_distance, static_map_url=static_map_url)
+        starting_address = request.form.get('starting_address', '')
+        waypoint1 = request.form.get('waypoint1', '')
+        waypoint2 = request.form.get('waypoint2', '')
+        waypoint3 = request.form.get('waypoint3', '')
+        waypoint4 = request.form.get('waypoint4', '')
+        waypoints = [waypoint1, waypoint2, waypoint3, waypoint4]
 
-    return render_template('index.html', route_waypoints=None, route_total_distance=None, static_map_url=None)
+        route_waypoints, route_total_distance, static_map_url = get_shortest_route(starting_address, waypoints)
+
+        # Save the data in session so that it can be accessed in the results page
+        session['route_waypoints'] = route_waypoints
+        session['route_total_distance'] = route_total_distance
+        session['static_map_url'] = static_map_url
+
+        # Redirect to the results page
+        return redirect(url_for('results'))
+
+    return render_template('index.html')
+
+@app.route('/results')
+def results():
+    # Retrieve the data from session
+    route_waypoints = session.get('route_waypoints', None)
+    route_total_distance = session.get('route_total_distance', None)
+    static_map_url = session.get('static_map_url', None)
+
+    # Check if the data exists in session
+    if route_waypoints is None or route_total_distance is None or static_map_url is None:
+        return redirect(url_for('index'))  # Redirect back to the index page if data is not available
+
+    # Clear the session data after displaying it on the results page
+    session.pop('route_waypoints', None)
+    session.pop('route_total_distance', None)
+    session.pop('static_map_url', None)
+
+    # Render the results page with the data and map
+    return render_template('result.html', route_waypoints=route_waypoints, route_total_distance=route_total_distance, static_map_url=static_map_url)
 
 
 def get_coordinates_from_address(address):
@@ -43,48 +86,6 @@ def get_coordinates_from_address(address):
     else:
         return None
 
-def get_consecutive_route(starting_address):
-    hardware_stores_coordinates = [get_coordinates_from_address(address) for address in hardware_stores]
-    starting_coordinates = get_coordinates_from_address(starting_address)
-    route_waypoints = []
-    total_distance = 0.0
-    for dest_coords in hardware_stores_coordinates:
-        directions_result = gmaps.directions(starting_coordinates, dest_coords, mode='driving')
-        if not directions_result:
-            print(f"No route found from starting address to {dest_coords}.")
-            continue
-
-        if 'legs' in directions_result[0]:
-            for leg in directions_result[0]['legs']:
-                end_location = leg['end_location']
-                end_address = leg['end_address']
-                distance = leg['distance']['text']
-                total_distance += float(leg['distance']['value'])
-                route_waypoints.append({'lat': end_location['lat'], 
-                                        'lng': end_location['lng'], 
-                                        'address': end_address,
-                                        'distance': distance })
-
-        starting_coordinates = dest_coords
-
-    return route_waypoints, round(total_distance * M2MI, 2)
-
-def get_static_map_url_straight_directins(waypoints, api_key):
-    if not waypoints:
-        return None
-
-    markers = '&'.join([f'markers=color:red%7C{waypoint["lat"]},{waypoint["lng"]}' for waypoint in waypoints])
-    path_points = '|'.join([f'{waypoint["lat"]},{waypoint["lng"]}' for waypoint in waypoints])
-    path = f'path=color:blue|weight:3|{path_points}'
-    params = {
-        'size': '800x600',
-        'maptype': 'roadmap',
-        'key': api_key,
-        'format': 'png',
-        'visual_refresh': 'true',
-    }
-    url = f'https://maps.googleapis.com/maps/api/staticmap?{urlencode(params)}&{markers}&{path}'
-    return url
 
 def get_static_map_url(waypoints, api_key):
     if not waypoints:
@@ -128,14 +129,33 @@ def get_static_map_url(waypoints, api_key):
     return url
 
 
-def get_shortest_route(starting_address):
+def get_shortest_route(starting_address, waypoints):
     """
-    Brute force to find shortest route.
-    Each element in the permutation represents a different order in which the destination coordinates can be visited. 
-    E.g., if there are 5 destinations with coordinates [A, B, C, D, E], one of the permutations might be (B, A, C, E, D), 
-    which means the route would start at B, then go to A, then C, and so on.
+    Brute force to find the shortest route.
+
+    Parameters:
+        starting_address (str): The starting address entered by the user.
+        waypoints (list of str): The list of waypoints (addresses) entered by the user.
+
+    Returns:
+        tuple: A tuple containing:
+            - route_waypoints (list of dict): List of waypoints in the optimized route, including their coordinates,
+                                              addresses, and distances.
+            - route_total_distance (float): The total distance of the optimized route in miles.
+            - static_map_url (str): The URL of the static map displaying the optimized route.
     """
-    hardware_stores_coordinates = [get_coordinates_from_address(address) for address in hardware_stores]
+
+    
+    hardware_stores_coordinates = []
+    for wpt in waypoints:
+        if wpt:
+            coordinates = get_coordinates_from_address(wpt)
+            if coordinates is not None:
+                hardware_stores_coordinates.append(coordinates)
+
+    if len(hardware_stores_coordinates) < 2:
+        return [], 0.0, None  # Return empty route and map URL if there are fewer than two waypoints
+    
     starting_coordinates = get_coordinates_from_address(starting_address)
     min_distance = float('inf')
     optimal_route = []
@@ -168,7 +188,6 @@ def get_shortest_route(starting_address):
             optimal_route = list(perm)
 
     # Format the result to match the original structure
-    
     route_waypoints = []
     for dest_coords in optimal_route:
         address = gmaps.reverse_geocode(dest_coords)[0]['formatted_address']
@@ -177,11 +196,11 @@ def get_shortest_route(starting_address):
 
     route_waypoints.append({'lat': starting_coordinates[0], 'lng': starting_coordinates[1], 'address': starting_address, 'distance': '0 mi'})
 
-
     # Get the static map URL
     static_map_url = get_static_map_url(route_waypoints, api_key)
 
     return route_waypoints, round(min_distance * M2MI, 2), static_map_url
+
 
 
 if __name__ == '__main__':
