@@ -19,33 +19,11 @@ gmaps = googlemaps.Client(key=api_key)
 M2MI = 0.000621371  # multiply value by M2MI to convert meters (default unit returned by the Google Maps Directions API) to miles
 
 
-@app.route('/reset', methods=['POST'])
-def reset_data():
-    session.pop('route_waypoints', None)
-    session.pop('static_map_url', None)
-    return jsonify(success=True)
-
-
-# @app.route('/', methods=['GET', 'POST'])
-# def index():
-#     if request.method == 'POST':
-#         starting_address = request.form.get('starting_address', '')  # Use get() with a default value
-#         waypoints = [request.form.get(f'waypoint{i}', '') for i in range(1, 5)]  # Use get() with a default value
-#         route_waypoints, route_total_distance, static_map_url = get_shortest_route(starting_address, waypoints)
-#         return render_template('index.html', route_waypoints=route_waypoints, route_total_distance=route_total_distance, static_map_url=static_map_url)
-
-#     return render_template('index.html', route_waypoints=None, route_total_distance=None, static_map_url=None)
-
 @app.route('/', methods=['GET', 'POST'])
 def index():
     if request.method == 'POST':
         starting_address = request.form.get('starting_address', '')
-        # waypoint1 = request.form.get('waypoint1', '')
-        # waypoint2 = request.form.get('waypoint2', '')
-        # waypoint3 = request.form.get('waypoint3', '')
-        # waypoint4 = request.form.get('waypoint4', '')
-        # waypoints = [waypoint1, waypoint2, waypoint3, waypoint4]
-        waypoints = [request.form.get(f'waypoint{i}', '') for i in range(1, 5)]  # Use get() with a default value
+        waypoints = [request.form.get(f'waypoint{i}', '') for i in range(1, 8)]  # Use get() with a default value
         route_waypoints, route_total_distance, static_map_url = get_shortest_route(starting_address, waypoints)
 
         # Save the data in session so that it can be accessed in the results page
@@ -137,9 +115,11 @@ def get_static_map_url(waypoints):
     return url
 
 
+from collections import OrderedDict
+
 def get_shortest_route(starting_address, waypoints):
     """
-    Brute force to find the shortest route.
+    Find the shortest route using the Google Maps Directions API.
 
     Parameters:
         starting_address (str): The starting address entered by the user.
@@ -153,62 +133,45 @@ def get_shortest_route(starting_address, waypoints):
             - static_map_url (str): The URL of the static map displaying the optimized route.
     """
 
-    
-    stop_coordinates = []
-    for wpt in waypoints:
-        if wpt:
-            coordinates = get_coordinates_from_address(wpt)
-            if coordinates is not None:
-                stop_coordinates.append(coordinates)
+    # Combine the starting address and waypoints to create the waypoints for Directions API
+    all_waypoints = [starting_address] + [wpt for wpt in waypoints if wpt]
 
-    if len(stop_coordinates) < 2:
-        return [], 0.0, None  # Return empty route and map URL if there are fewer than two waypoints
-    
-    starting_coordinates = get_coordinates_from_address(starting_address)
-    min_distance = float('inf')
-    optimal_route = []
+    # Request directions from Google Maps Directions API
+    directions_result = gmaps.directions(
+        origin=starting_address,
+        destination=starting_address,
+        waypoints=all_waypoints[1:],
+        mode='driving',
+        optimize_waypoints=True
+    )
 
-    # Generate all possible permutations of the waypoints (excluding starting point)
-    for perm in itertools.permutations(stop_coordinates):
-        total_distance = 0.0
-        current_coordinates = starting_coordinates
+    # Extract route details from the API response
+    if not directions_result:
+        return [], 0.0, None
 
-        for dest_coords in perm:
-            directions_result = gmaps.directions(current_coordinates, dest_coords, mode='driving')
-
-            if not directions_result:
-                print(f"No route found from starting address to {dest_coords}.")
-                break
-
-            if 'legs' in directions_result[0]:
-                for leg in directions_result[0]['legs']:
-                    total_distance += float(leg['distance']['value'])
-                    current_coordinates = dest_coords
-
-        # Calculate the distance to return back to the starting point
-        directions_result = gmaps.directions(current_coordinates, starting_coordinates, mode='driving')
-        if directions_result and 'legs' in directions_result[0]:
-            for leg in directions_result[0]['legs']:
-                total_distance += float(leg['distance']['value'])
-
-        if total_distance < min_distance:
-            min_distance = total_distance
-            optimal_route = list(perm)
-
-    # Format the result to match the original structure
+    legs = directions_result[0]['legs']
     route_waypoints = []
-    for dest_coords in optimal_route:
-        address = gmaps.reverse_geocode(dest_coords)[0]['formatted_address']
-        distance = gmaps.distance_matrix(starting_address, address, mode='driving')['rows'][0]['elements'][0]['distance']['text']
-        route_waypoints.append({'lat': dest_coords[0], 'lng': dest_coords[1], 'address': address, 'distance': distance})
+    total_distance = 0.0
 
-    route_waypoints.append({'lat': starting_coordinates[0], 'lng': starting_coordinates[1], 'address': starting_address, 'distance': '0 mi'})
+    for leg in legs:
+        distance_text = leg['distance']['text']
+        distance_value = leg['distance']['value']
+        address = leg['start_address']
+        lat = leg['start_location']['lat']
+        lng = leg['start_location']['lng']
+        route_waypoints.append({'lat': lat, 'lng': lng, 'address': address, 'distance': distance_text})
+        total_distance += distance_value
+
+    # Format the result with the starting point at the end to form a loop
+    start_coords = route_waypoints[0]['lat'], route_waypoints[0]['lng']
+    start_address = route_waypoints[0]['address']
+    start_distance = route_waypoints[0]['distance']
+    route_waypoints.append({'lat': start_coords[0], 'lng': start_coords[1], 'address': start_address, 'distance': start_distance})
 
     # Get the static map URL
     static_map_url = get_static_map_url(route_waypoints)
 
-    return route_waypoints, round(min_distance * M2MI, 2), static_map_url
-
+    return route_waypoints, round(total_distance * M2MI, 2), static_map_url
 
 
 if __name__ == '__main__':

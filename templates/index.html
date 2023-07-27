@@ -22,6 +22,15 @@
         <label for="waypoint4">Waypoint 4 address:</label>
         <input type="text" id="waypoint4" name="waypoint4">
         <br>
+        <label for="waypoint4">Waypoint 5 address:</label>
+        <input type="text" id="waypoint5" name="waypoint5">
+        <br>
+        <label for="waypoint4">Waypoint 6 address:</label>
+        <input type="text" id="waypoint6" name="waypoint6">
+        <br>
+        <label for="waypoint4">Waypoint 7 address:</label>
+        <input type="text" id="waypoint7" name="waypoint7">
+        <br>
         <button type="button" onclick="loadDemoData()" class="mt-3">Use Demo addresses</button>
         <input type="submit" class="mt-3" value="Calculate Shortest Route">
         
@@ -32,8 +41,12 @@
             document.getElementById("starting_address").value = "3 Community Park Rd, Broomfield, CO 80020, USA";
             document.getElementById("waypoint1").value = "13650 Orchard Pkwy, Westminster, CO 80023, USA";
             document.getElementById("waypoint2").value = "5600 West 88TH Ave Westminster, CO 80031, USA";
-            document.getElementById("waypoint3").value = "2910 Arapahoe Rd, Erie, CO 80026, USA";
+            document.getElementById("waypoint3").value = "2910 Arapahoe Rd, Lafayette, CO 80516, USA";
             document.getElementById("waypoint4").value = "12171 Sheridan Blvd, Broomfield, CO 80020, USA";
+            document.getElementById("waypoint5").value = "1200 W Dillon Rd, 80027, Louisville, USA";
+            document.getElementById("waypoint6").value = "1600 29th Street, 80301, Boulder, USA";
+            document.getElementById("waypoint7").value = "2525 Arapahoe Ave, Boulder, CO 80302";
+            
         }
     </script>
 {% endblock %}
