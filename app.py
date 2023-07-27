@@ -40,12 +40,12 @@ def reset_data():
 def index():
     if request.method == 'POST':
         starting_address = request.form.get('starting_address', '')
-        waypoint1 = request.form.get('waypoint1', '')
-        waypoint2 = request.form.get('waypoint2', '')
-        waypoint3 = request.form.get('waypoint3', '')
-        waypoint4 = request.form.get('waypoint4', '')
-        waypoints = [waypoint1, waypoint2, waypoint3, waypoint4]
-
+        # waypoint1 = request.form.get('waypoint1', '')
+        # waypoint2 = request.form.get('waypoint2', '')
+        # waypoint3 = request.form.get('waypoint3', '')
+        # waypoint4 = request.form.get('waypoint4', '')
+        # waypoints = [waypoint1, waypoint2, waypoint3, waypoint4]
+        waypoints = [request.form.get(f'waypoint{i}', '') for i in range(1, 5)]  # Use get() with a default value
         route_waypoints, route_total_distance, static_map_url = get_shortest_route(starting_address, waypoints)
 
         # Save the data in session so that it can be accessed in the results page
@@ -87,11 +87,19 @@ def get_coordinates_from_address(address):
         return None
 
 
-def get_static_map_url(waypoints, api_key):
+def get_static_map_url(waypoints):
     if not waypoints:
         return None
 
-    markers = '&'.join([f'markers=color:red%7C{waypoint["lat"]},{waypoint["lng"]}' for waypoint in waypoints])
+    markers = []
+    for i, waypoint in enumerate(waypoints):
+        if i == 0:
+            # Use a different color (blue) and label (S) for the starting point
+            markers.append(f'markers=color:blue|label:S|{waypoint["lat"]},{waypoint["lng"]}')
+        else:
+            markers.append(f'markers=color:red|label:{i}|{waypoint["lat"]},{waypoint["lng"]}')
+
+    markers_str = '&'.join(markers)
 
     # Fetch the directions for the entire route
     start = f'{waypoints[0]["lat"]},{waypoints[0]["lng"]}'
@@ -125,7 +133,7 @@ def get_static_map_url(waypoints, api_key):
         'visual_refresh': 'true',
     }
 
-    url = f'https://maps.googleapis.com/maps/api/staticmap?{urlencode(params)}&{markers}&{path}'
+    url = f'https://maps.googleapis.com/maps/api/staticmap?{urlencode(params)}&{markers_str}&{path}'
     return url
 
 
@@ -197,7 +205,7 @@ def get_shortest_route(starting_address, waypoints):
     route_waypoints.append({'lat': starting_coordinates[0], 'lng': starting_coordinates[1], 'address': starting_address, 'distance': '0 mi'})
 
     # Get the static map URL
-    static_map_url = get_static_map_url(route_waypoints, api_key)
+    static_map_url = get_static_map_url(route_waypoints)
 
     return route_waypoints, round(min_distance * M2MI, 2), static_map_url
 
