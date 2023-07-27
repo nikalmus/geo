@@ -1,14 +1,33 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Routes to hardware stores</title>
+    <title>Travelling Salesman</title>
 </head>
 <body>
-    <h1>Routes to hardware stores</h1>
+    <h1>Routes to stores</h1>
     <form method="POST" action="/">
         <label for="address">Enter your address in Colorado:</label>
         <input type="text" id="address" name="address" required>
         <input type="submit" value="Calculate Shortest Route">
     </form>
+
+    {% if route_waypoints and static_map_url %}
+            <h2>Optimized Route Map:</h2>
+            <img src="{{ static_map_url }}" alt="Optimized Route Map">
+
+        <h2>Optimized Route:</h2>
+        <ul>
+            {% for waypoint in route_waypoints %}
+            <li>
+                Latitude: {{ waypoint.lat }}, Longitude: {{ waypoint.lng }} - Distance: {{ waypoint.distance }}<br>
+                Address: {{ waypoint.address }}
+            </li>
+            {% endfor %}
+        </ul>
+        <p>Total Distance: {{ route_total_distance }} miles</p>
+    {% endif %}
 </body>
 </html>
+
+
+
