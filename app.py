@@ -146,14 +146,14 @@ def get_shortest_route(starting_address, waypoints):
     """
 
     
-    hardware_stores_coordinates = []
+    stop_coordinates = []
     for wpt in waypoints:
         if wpt:
             coordinates = get_coordinates_from_address(wpt)
             if coordinates is not None:
-                hardware_stores_coordinates.append(coordinates)
+                stop_coordinates.append(coordinates)
 
-    if len(hardware_stores_coordinates) < 2:
+    if len(stop_coordinates) < 2:
         return [], 0.0, None  # Return empty route and map URL if there are fewer than two waypoints
     
     starting_coordinates = get_coordinates_from_address(starting_address)
@@ -161,7 +161,7 @@ def get_shortest_route(starting_address, waypoints):
     optimal_route = []
 
     # Generate all possible permutations of the waypoints (excluding starting point)
-    for perm in itertools.permutations(hardware_stores_coordinates):
+    for perm in itertools.permutations(stop_coordinates):
         total_distance = 0.0
         current_coordinates = starting_coordinates
 
