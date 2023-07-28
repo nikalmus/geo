@@ -3,7 +3,6 @@ from dotenv import load_dotenv
 from flask import Flask, render_template, request, session, jsonify, redirect, url_for
 import googlemaps
 
-import itertools
 from urllib.parse import urlencode
 
 load_dotenv()
@@ -14,10 +13,7 @@ app.secret_key = os.environ['SECRET_KEY']
 
 gmaps = googlemaps.Client(key=api_key)
 
-
-
 M2MI = 0.000621371  # multiply value by M2MI to convert meters (default unit returned by the Google Maps Directions API) to miles
-
 
 @app.route('/', methods=['GET', 'POST'])
 def index():
@@ -114,9 +110,6 @@ def get_static_map_url(waypoints):
     url = f'https://maps.googleapis.com/maps/api/staticmap?{urlencode(params)}&{markers_str}&{path}'
     return url
 
-
-from collections import OrderedDict
-
 def get_shortest_route(starting_address, waypoints):
     """
     Find the shortest route using the Google Maps Directions API.
@@ -153,23 +146,32 @@ def get_shortest_route(starting_address, waypoints):
     route_waypoints = []
     total_distance = 0.0
 
-    for leg in legs:
+    for i, leg in enumerate(legs):
         distance_text = leg['distance']['text']
         distance_value = leg['distance']['value']
         address = leg['start_address']
         lat = leg['start_location']['lat']
         lng = leg['start_location']['lng']
-        route_waypoints.append({'lat': lat, 'lng': lng, 'address': address, 'distance': distance_text})
+
+        # Exclude distance for the starting point (i == 0)
+        distance = distance_text if i > 0 else None
+
+        route_waypoints.append({'lat': lat, 'lng': lng, 'address': address, 'distance': distance})
         total_distance += distance_value
+
+
 
     # Format the result with the starting point at the end to form a loop
     start_coords = route_waypoints[0]['lat'], route_waypoints[0]['lng']
     start_address = route_waypoints[0]['address']
     start_distance = route_waypoints[0]['distance']
-    route_waypoints.append({'lat': start_coords[0], 'lng': start_coords[1], 'address': start_address, 'distance': start_distance})
+    route_waypoints.append({'lat': start_coords[0], 'lng': start_coords[1], 'address': start_address, 'distance': None})
 
     # Get the static map URL
     static_map_url = get_static_map_url(route_waypoints)
+
+    # Set the distance for the last leg manually
+    route_waypoints[-1]['distance'] = gmaps.distance_matrix(route_waypoints[-2]['address'], start_address, mode='driving')['rows'][0]['elements'][0]['distance']['text']
 
     return route_waypoints, round(total_distance * M2MI, 2), static_map_url
 

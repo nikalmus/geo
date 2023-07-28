@@ -1,23 +1,19 @@
 {% extends "base.html" %}
-
 {% block title %}Shortest Route{% endblock %}
 
 {% block content %}
     {% if route_waypoints and static_map_url %}
-        <h2>Optimized Route Map:</h2>
         <img src="{{ static_map_url }}" alt="Optimized Route Map">
-
         <h4>Optimized Route:</h4>
         <ul>
             {% for waypoint in route_waypoints %}
             <li>
-                Latitude: {{ waypoint.lat }}, Longitude: {{ waypoint.lng }} - Distance: {{ waypoint.distance }}<br>
-                Address: {{ waypoint.address }}
+                {{ waypoint.address }} <br>
             </li>
             {% endfor %}
         </ul>
         <p>Total Distance: {{ route_total_distance }} miles</p>
     {% endif %}
     <a href="{{url_for('index')}}">Back to Home</a>
-    {% endblock %}
+{% endblock %}
 
